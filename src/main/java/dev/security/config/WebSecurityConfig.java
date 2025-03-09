@@ -1,23 +1,39 @@
-package dev.security;
+package dev.security.config;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import dev.security.config.EncoderConfig;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+
 
 @Configuration
 public class WebSecurityConfig {
 
+    @Autowired
+    private SecurityDatabaseService securityService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+
+    @Autowired
+    public void globalUserDetails(AuthenticationManagerBuilder auth) throws Exception {
+        auth.userDetailsService(securityService).passwordEncoder(passwordEncoder);
+    }
+
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
         http
                 .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/public/**").permitAll()
                         .requestMatchers("/").permitAll()
                         .requestMatchers("/users").hasAnyRole("USER", "ADMIN")
@@ -25,27 +41,8 @@ public class WebSecurityConfig {
                         .anyRequest().authenticated())
                 .formLogin(form -> form
                         .defaultSuccessUrl("/users", true))
-                .csrf(csrf -> csrf.disable());
+                .csrf(csrf -> csrf.disable())
+        .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()));
         return http.build();
-    }
-
-    @Bean
-    public UserDetailsService userDetailsService() {
-        UserDetails user1 = User.withUsername("user1")
-                .password(passwordEncoder().encode("password1"))
-                .roles("USER")
-                .build();
-
-        UserDetails user2 = User.withUsername("user2")
-                .password(passwordEncoder().encode("password2"))
-                .roles("ADMIN")
-                .build();
-
-        return new InMemoryUserDetailsManager(user1, user2);
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
     }
 }
